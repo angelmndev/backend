@@ -59,11 +59,12 @@ class Ceco {
     };
 
     static async updateCeco(idCeco, { codigoCeco, nombreCeco, fk_sede, presupuestoCeco }) {
-
+        console.log(presupuestoCeco);
         try {
-            const sqlSentence = "UPDATE ?? SET  codigoCeco=?, nombreCeco=?, fk_sede=?, presupuestoCeco=presupuestoCeco + ? WHERE idCeco=?";
+            const sqlSentence = "UPDATE ?? SET  codigoCeco=?, nombreCeco=?, fk_sede=?, presupuestoCeco=? WHERE idCeco=?";
             const sqlPreparing = ['ceco', codigoCeco, nombreCeco, fk_sede, presupuestoCeco, idCeco];
             const sql = await db.format(sqlSentence, sqlPreparing);
+            console.log(sql);
             const response = await db.query(sql);
             return response;
 

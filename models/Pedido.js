@@ -367,56 +367,86 @@ class Pedido {
     static async crearPedidoApi({ fk_ceco, maquinaDestino, tipoMantenimiento, materiales, fk_usuario, fk_area }) {
 
         try {
-            const sqlSentencePedido = "INSERT INTO ?? SET ?";
-            const sqlPreparingPedido = ["pedido", {
-                fk_usuario: fk_usuario,
-                fk_ceco: fk_ceco,
-                maquinaDestino: maquinaDestino,
-                tipoMantenimiento: tipoMantenimiento
-            }];
+            let costoTotalDelPedidoActual = 0;
 
-            const sqlPedido = await db.format(sqlSentencePedido, sqlPreparingPedido);
-            const responsePedido = await db.query(sqlPedido);
+            for (let index = 0; index < materiales.length; index++) {
+                //1- OBTENIENDO PRECIO DE LA DB
+                const queryPrecio = "SELECT precioReferencialProducto FROM ?? WHERE skuProducto=?"
+                const queryProtected = ["producto", materiales[index].codigo]
+                const queryReady = await db.format(queryPrecio, queryProtected)
 
-            //ultimo pedido insertado
-            const sqlUltimo = "SELECT @@identity AS id";
-            const res = await db.query(sqlUltimo);
-            const idPedido = res[0].id;
-            let httpResponse = {}
+                const queryResponse = await db.query(queryReady)
 
-            //insertando en detalle pedido
-            for (let i = 0; i < materiales.length; i++) {
+                const costoMaterial = queryResponse[0].precioReferencialProducto;
+                const costoDelPedido = costoMaterial * materiales[index].cantidad;
+                costoTotalDelPedidoActual = costoTotalDelPedidoActual + costoDelPedido
 
-                const sqlSentenceUpdateProducto = `UPDATE producto SET
+            }
+
+
+            //OBTENIENDO PRESUPUESTO DEL CECO ESCOGIDO
+            const queryCeco = "SELECT presupuestoCeco FROM ?? WHERE idCeco = ?"
+            const queryCecoProtected = ["ceco", fk_ceco]
+            const queryCecoReady = await db.format(queryCeco, queryCecoProtected)
+            const queryResponse = await db.query(queryCecoReady)
+            const presupuestoCeco = queryResponse[0].presupuestoCeco
+
+            if (presupuestoCeco < costoTotalDelPedidoActual) {
+                return { excede: true }
+
+            } else {
+                const sqlSentencePedido = "INSERT INTO ?? SET ?";
+                const sqlPreparingPedido = ["pedido", {
+                    fk_usuario: fk_usuario,
+                    fk_ceco: fk_ceco,
+                    maquinaDestino: maquinaDestino,
+                    tipoMantenimiento: tipoMantenimiento
+                }];
+
+                const sqlPedido = await db.format(sqlSentencePedido, sqlPreparingPedido);
+                const responsePedido = await db.query(sqlPedido);
+
+                //ultimo pedido insertado
+                const sqlUltimo = "SELECT @@identity AS id";
+                const res = await db.query(sqlUltimo);
+                const idPedido = res[0].id;
+                let httpResponse = {}
+
+                //actualizando ceco y area de producto
+                for (let i = 0; i < materiales.length; i++) {
+
+                    const sqlSentenceUpdateProducto = `UPDATE producto SET
                 fk_ceco =?,
                 fk_area =?
                 WHERE idProducto = ?`
 
-                const sqlPreparingUpdateProducto = [
-                    fk_ceco,
-                    fk_area,
-                    materiales[i].idProducto
-                ];
-                const sqlResponseUpdateProducto = await db.format(sqlSentenceUpdateProducto, sqlPreparingUpdateProducto)
-                const responseUpdate = await db.query(sqlResponseUpdateProducto)
+                    const sqlPreparingUpdateProducto = [
+                        fk_ceco,
+                        fk_area,
+                        materiales[i].idProducto
+                    ];
+                    const sqlResponseUpdateProducto = await db.format(sqlSentenceUpdateProducto, sqlPreparingUpdateProducto)
+                    const responseUpdate = await db.query(sqlResponseUpdateProducto)
+
+                    //insertando en detalle pedido
+
+                    const sqlSentenceDetallePedido = "INSERT INTO ?? SET ?";
+                    const sqlPreparingDetallePedido = ["detalle_pedido", {
+                        cantidadPedido: materiales[i].cantidad,
+                        fk_pedido: idPedido,
+                        fk_producto_almacen: materiales[i].idProducto,
+
+                    }];
+                    const sqlDetallePedido = await db.format(sqlSentenceDetallePedido, sqlPreparingDetallePedido);
+                    httpResponse = await db.query(sqlDetallePedido);
 
 
-                const sqlSentenceDetallePedido = "INSERT INTO ?? SET ?";
-                const sqlPreparingDetallePedido = ["detalle_pedido", {
-                    cantidadPedido: materiales[i].cantidad,
-                    fk_pedido: idPedido,
-                    fk_producto_almacen: materiales[i].idProducto,
+                }
 
-                }];
-                const sqlDetallePedido = await db.format(sqlSentenceDetallePedido, sqlPreparingDetallePedido);
-                httpResponse = await db.query(sqlDetallePedido);
-                // httpResponse2 = Object.assign(httpResponse, { idUsuario: fk_usuario })
+                let httpResponseApi = Object.assign(httpResponse, { idUsuario: fk_usuario, excede: false })
 
+                return httpResponseApi
             }
-
-            let httpResponseApi = Object.assign(httpResponse, { idUsuario: fk_usuario })
-
-            return httpResponseApi
 
 
         } catch (error) {
