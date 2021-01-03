@@ -160,6 +160,7 @@ class Pedido {
             const sqlPreparing = ['idDetalle_pedido', idPedido];
             const sql = await db.format(sqlSentence, sqlPreparing);
             const response = await db.query(sql);
+
             return response[0];
 
         } catch (error) {
@@ -471,15 +472,17 @@ class Pedido {
         pedido.tipoMantenimiento as tipo_Mantenimiento,
         pedido.maquinaDestino as maquina_Destino
         FROM detalle_pedido
+        
         INNER JOIN pedido
         ON detalle_pedido.fk_pedido = pedido.idPedido
-        INNER JOIN producto_almacen
-        ON detalle_pedido.fk_producto_almacen = producto_almacen.idProductoAlmacen
+        
+      
         INNER JOIN producto
-        ON producto_almacen.fk_producto = producto.idProducto
+        ON detalle_pedido.fk_producto_almacen = producto.idProducto
+        
         INNER JOIN usuario
         ON pedido.fk_usuario = usuario.idUsuario
-        WHERE ?? = ?`
+        WHERE ??=?`
 
 
         const sqlPreparing = ['fk_pedido', id];

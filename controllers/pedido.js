@@ -171,6 +171,7 @@ const crearPedidoApi = async (req, res) => {
 const exportarExcel = async (req, res) => {
     const { id } = req.params;
     const httpResponse = await Pedido.exportarPedido(id)
+
     res.status(200).json({ pedidos: httpResponse })
 
 }
