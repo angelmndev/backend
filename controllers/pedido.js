@@ -1,6 +1,7 @@
 const Pedido = require('../models/Pedido');
 const Usuario = require('../models/Usuario')
 const nodemailer = require('nodemailer');
+const { json } = require('express');
 
 
 const getPedidos = async (req, res) => {
@@ -17,12 +18,6 @@ const getDetalles = async (req, res) => {
     res.status(200).json(detalles);
 }
 
-const getDetallesPedido = async (req, res) => {
-    const { idPedido } = req.params;
-
-    const detalles = await Pedido.getDetallesId(idPedido);
-    res.status(200).json(detalles);
-}
 
 const updateDetallePedidoId = async (req, res) => {
 
@@ -183,10 +178,16 @@ const getListPedidosUsuarioApi = async (req, res) => {
     res.status(200).json({ pedidos: httpResponse })
 }
 
+const deletePedidoId = async (req, res) => {
+    const { id } = req.params;
+    const response = await Pedido.deletePedidoId(id);
+    if (response.affectedRows) {
+        res.status(200).json({ success: true, message: 'pedido eliminado' });
+    }
+}
 module.exports = {
     getPedidos,
     getDetalles,
-    getDetallesPedido,
     updateDetallePedidoId,
     deleteDetallePedidoId,
     aprobarPedidoId,
@@ -196,6 +197,7 @@ module.exports = {
     buscarProductoPorCodigo,
     crearPedidoApi,
     exportarExcel,
-    getListPedidosUsuarioApi
+    getListPedidosUsuarioApi,
+    deletePedidoId
 
 }

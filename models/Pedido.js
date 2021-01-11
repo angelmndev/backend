@@ -97,7 +97,8 @@ class Pedido {
                 nombrePersonalUsuario,
                 nombreCeco,
                 nombreSede,
-                idCeco
+                idCeco,
+                maquinaDestino
                 FROM ??
                 JOIN usuario
                 ON pedido.fk_usuario = usuario.idUsuario
@@ -124,7 +125,9 @@ class Pedido {
                fk_pedido,
                idDetalle_pedido,
                nombreProducto,
+               skuProducto,
                cantidadPedido,
+               unidadProducto as unidad,
                precioReferencialProducto,
                (cantidadPedido*precioReferencialProducto) as total,
                nombreArea,
@@ -154,19 +157,7 @@ class Pedido {
         }
     }
 
-    static async getDetallesId(idPedido) {
-        try {
-            const sqlSentence = "SELECT*FROM detalle_pedido WHERE ??=?";
-            const sqlPreparing = ['idDetalle_pedido', idPedido];
-            const sql = await db.format(sqlSentence, sqlPreparing);
-            const response = await db.query(sql);
 
-            return response[0];
-
-        } catch (error) {
-            return error;
-        }
-    }
 
     static async updateDetallePedidoId(id, cantidadPedido) {
 
@@ -460,10 +451,11 @@ class Pedido {
 
     static async exportarPedido(id) {
         const sentenceSql = `SELECT 
-        producto.skuProducto as sku,
+        producto.skuProducto as codigo,
         producto.nombreProducto as material,
         detalle_pedido.cantidadPedido as cantidad,
-        pedido.create_date as fecha,
+        producto.unidadProducto as unidad,
+        DATE_FORMAT(pedido.create_date, "%d/%m/%Y") as fecha,
         pedido.gpo_articulo as gpo_articulo,
         pedido.centro as centro,
         pedido.codigo_almacen as codigo_almacen,
@@ -516,6 +508,26 @@ class Pedido {
             const sql = await db.format(sqlSentences, sqlPreparing);
             const pedidos = await db.query(sql);
             return pedidos;
+
+        } catch (error) {
+            return error;
+        }
+    }
+
+    static async deletePedidoId(id) {
+        try {
+            const sqlSentence = "DELETE FROM ?? WHERE ??=?";
+            const sqlPreparing = ['detalle_pedido', 'fk_pedido', id];
+            const sql = await db.format(sqlSentence, sqlPreparing);
+            const response = await db.query(sql);
+
+            if (response.affectedRows) {
+                const sqlSentence = "DELETE FROM ?? WHERE ??=?";
+                const sqlPreparing = ['pedido', 'idPedido', id];
+                const sql = await db.format(sqlSentence, sqlPreparing);
+                const response = await db.query(sql);
+                return response
+            }
 
         } catch (error) {
             return error;
