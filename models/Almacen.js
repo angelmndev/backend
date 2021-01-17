@@ -2121,15 +2121,15 @@ class Almacen {
         let contador = 0;
 
         for (let i = 0; i < material.length; i++) {
-            const sqlSentence1 = "DELETE FROM ?? WHERE ??=?";
-            const sqlPreparing1 = ['producto_almacen', 'fk_producto', material[i].fk_producto];
-            const sql1 = await db.format(sqlSentence1, sqlPreparing1);
-            const response1 = await db.query(sql1);
+            // const sqlSentence1 = "DELETE FROM ?? WHERE ??=?";
+            // const sqlPreparing1 = ['producto_almacen', 'fk_producto', material[i].fk_producto];
+            // const sql1 = await db.format(sqlSentence1, sqlPreparing1);
+            // const response1 = await db.query(sql1);
 
-            // const sqlSentence2 = "DELETE FROM ?? WHERE ??=?";
-            // const sqlPreparing2 = ['producto', 'idProducto', material[i].fk_producto];
-            // const sql2 = await db.format(sqlSentence2, sqlPreparing2);
-            // const response2 = await db.query(sql2);
+            const sqlSentence2 = "DELETE FROM ?? WHERE ??=?";
+            const sqlPreparing2 = ['producto', 'idProducto', material[i].fk_producto];
+            const sql2 = await db.format(sqlSentence2, sqlPreparing2);
+            const response2 = await db.query(sql2);
 
             contador++;
         }
