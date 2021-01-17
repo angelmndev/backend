@@ -45,20 +45,16 @@ const getUsuario = async (req, res) => {
 const updateUsuario = async (req, res) => {
 
     const { idUsuario } = req.params;
-    console.log(idUsuario);
+
     let {
         nombreUsuario,
-        claveUsuario,
         nombrePersonalUsuario,
         apellidoPersonalUsuario,
         fk_rol } = req.body;
 
-    //hash password
-    claveUsuario = await passwordHash(claveUsuario)
 
     const usuario = {
         nombreUsuario,
-        claveUsuario,
         nombrePersonalUsuario,
         apellidoPersonalUsuario,
         fk_rol
@@ -80,6 +76,7 @@ const updateUsuario = async (req, res) => {
 }
 
 const deleteUsuario = async (req, res) => {
+
     const { idUsuario } = req.params;
 
     const response = await Usuario.deleteUser(idUsuario)
@@ -93,10 +90,28 @@ const deleteUsuario = async (req, res) => {
 
 
 }
+
+
+const changePasswordUser = async (req, res) => {
+
+    const { id } = req.params;
+    let { password } = req.body;
+    password = await passwordHash(password);
+
+    const response = await Usuario.changeUserPassword(id, password)
+    res.status(200).json({ success: true, message: 'cambiando password' })
+    // //hash password
+
+
+
+}
+
+
 module.exports = {
     createUsuario,
     getUsuarios,
     getUsuario,
     updateUsuario,
-    deleteUsuario
+    deleteUsuario,
+    changePasswordUser
 }

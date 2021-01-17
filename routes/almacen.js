@@ -18,7 +18,8 @@ const {
     filtroProductoSedeAlmacen,
     filtrarKardexProductoFechas,
     filtrarKardexPorFecha,
-    actualizarStockGeneral
+    actualizarStockGeneral,
+    eliminarMateriales
 } = require('../controllers/almacen');
 const { moverEntreAlmacen } = require('../models/Almacen');
 
@@ -71,4 +72,7 @@ route.get('/kardex/:fechaInicio/:fechaFin', filtrarKardexPorFecha)
 
 route.post('/actualizarStock/almacenGeneral', actualizarStockGeneral)
 
+
+//delete masivo
+route.delete('/deleteMasivo', eliminarMateriales)
 module.exports = route;

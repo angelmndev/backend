@@ -60,7 +60,6 @@ class Usuario {
 
     static async updateUser(idUsuario,
         { nombreUsuario,
-            claveUsuario,
             nombrePersonalUsuario,
             apellidoPersonalUsuario,
             fk_rol,
@@ -69,7 +68,6 @@ class Usuario {
         const sqlSentences = `UPDATE ?? 
         SET 
         nombreUsuario=?, 
-        claveUsuario=?,
         nombrePersonalUsuario=?,
         apellidoPersonalUsuario=?,
         fk_rol=?
@@ -78,13 +76,11 @@ class Usuario {
 
         const sqlPreparing = ["usuario",
             nombreUsuario,
-            claveUsuario,
             nombrePersonalUsuario,
             apellidoPersonalUsuario,
             fk_rol,
             idUsuario];
 
-        console.log(sqlPreparing);
         const sql = await db.format(sqlSentences, sqlPreparing);
         const response = await db.query(sql);
 
@@ -117,6 +113,28 @@ class Usuario {
         } catch (error) {
             return error
         }
+    }
+
+    static async changeUserPassword(idUsuario, newPassword) {
+        console.log(idUsuario, newPassword);
+
+        try {
+            const sqlSentences = `UPDATE ?? 
+            SET  
+            claveUsuario=?
+            WHERE idUsuario=?`;
+
+            const sqlPreparing = ["usuario",
+                newPassword,
+                idUsuario];
+
+            const sql = await db.format(sqlSentences, sqlPreparing);
+            const response = await db.query(sql);
+
+        } catch (error) {
+
+        }
+
     }
 }
 

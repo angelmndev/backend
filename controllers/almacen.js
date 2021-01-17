@@ -58,9 +58,9 @@ const registrarIngresoMaterial = async (req, res) => {
 }
 
 const registrarSalidaMaterial = async (req, res) => {
-
+    console.log(req.body);
     const response = await Almacen.registrarSalidaMaterial(req.body)
-    console.log(response);
+    // console.log(response);
     if (response) {
         res.status(200).json({ success: true, message: 'El producto ha sido retirado con exito!' })
     }
@@ -142,6 +142,11 @@ const actualizarStockGeneral = async (req, res) => {
     }
 }
 
+const eliminarMateriales = async (req, res) => {
+    const response = await Almacen.eliminarMaterialesInnecesarios();
+    res.status(200).json({ message: 'materiales eliminados' })
+}
+
 module.exports = {
     obtenerAlmacenPorSede,
     obtenerMaterialesPorSede,
@@ -160,5 +165,6 @@ module.exports = {
     filtroProductoSedeAlmacen,
     filtrarKardexProductoFechas,
     filtrarKardexPorFecha,
-    actualizarStockGeneral
+    actualizarStockGeneral,
+    eliminarMateriales
 }
