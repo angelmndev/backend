@@ -142,10 +142,7 @@ const actualizarStockGeneral = async (req, res) => {
     }
 }
 
-const eliminarMateriales = async (req, res) => {
-    const response = await Almacen.eliminarMaterialesInnecesarios();
-    res.status(200).json({ message: 'materiales eliminados' })
-}
+
 
 module.exports = {
     obtenerAlmacenPorSede,
@@ -165,6 +162,5 @@ module.exports = {
     filtroProductoSedeAlmacen,
     filtrarKardexProductoFechas,
     filtrarKardexPorFecha,
-    actualizarStockGeneral,
-    eliminarMateriales
+    actualizarStockGeneral
 }
