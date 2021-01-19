@@ -131,11 +131,17 @@ class Producto {
 
     static async deleteProductoId(id) {
         try {
-            const sqlSentences = "DELETE FROM ?? WHERE idProducto=?";
-            const sqlPreparing = ["producto", id];
-            const sql = db.format(sqlSentences, sqlPreparing);
-            const response = db.query(sql);
-            return response;
+            const sqlSentences1 = "DELETE FROM ?? WHERE fk_producto=?";
+            const sqlPreparing1 = ["producto_almacen", id];
+            const sql1 = await db.format(sqlSentences1, sqlPreparing1);
+            const response1 = await db.query(sql1);
+
+
+            const sqlSentences2 = "DELETE FROM ?? WHERE idProducto=?";
+            const sqlPreparing2 = ["producto", id];
+            const sql2 = await db.format(sqlSentences2, sqlPreparing2);
+            const response2 = await db.query(sql2);
+            return response2;
 
         } catch (error) {
 
