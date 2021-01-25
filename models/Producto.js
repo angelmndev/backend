@@ -101,7 +101,7 @@ class Producto {
     static async updateProducto(id, producto) {
 
         try {
-            const sqlSentences = `UPDATE ?? SET 
+            const sqlSentences1 = `UPDATE ?? SET 
             skuProducto=?,
             nombreProducto=?,
             tipoProducto=?,
@@ -110,7 +110,7 @@ class Producto {
             fk_categoria=?
             WHERE idProducto =?`;
 
-            const sqlPreparing = ["producto",
+            const sqlPreparing1 = ["producto",
                 producto.skuProducto,
                 producto.nombreProducto,
                 producto.tipoProducto,
@@ -120,9 +120,21 @@ class Producto {
                 id
             ];
 
-            const sql = await db.format(sqlSentences, sqlPreparing);
-            const response = await db.query(sql);
-            return response;
+            const sql1 = await db.format(sqlSentences1, sqlPreparing1);
+            const response1 = await db.query(sql1);
+
+            const sqlSentences2 = `UPDATE ?? SET 
+            costoProductoAlmacen=?
+            WHERE fk_producto =?`;
+
+            const sqlPreparing2 = ["producto_almacen",
+                producto.precioReferencialProducto,
+                id
+            ];
+
+            const sql2 = await db.format(sqlSentences2, sqlPreparing2);
+            const response2 = await db.query(sql2);
+            return response2;
 
         } catch (error) {
             console.log(error);

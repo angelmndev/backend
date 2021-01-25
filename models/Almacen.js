@@ -19,7 +19,11 @@ class Almacen {
 
     static async obtenerMaterialesPorSede(fk_sede) {
         const query = `
-        select idProducto,nombreProducto,fk_sede from ?? 
+        select idProducto,
+        nombreProducto,
+        unidadProducto,
+        fk_sede 
+        from ?? 
         join ceco  
         on producto.fk_ceco = ceco.idCeco
         where ceco.fk_sede = ?`;
@@ -30,44 +34,52 @@ class Almacen {
         return response
     }
 
-    static async obtenerMaterialesPorAlmacen(fk_almacen) {
+    static async obtenerMaterialesPorAlmacen(codigo_almacen) {
+
         const query = `
-        select producto.idProducto,producto.nombreProducto from ?? 
+        select 
+        producto.idProducto,
+        producto.nombreProducto,
+        producto_almacen.cantidadProductoAlmacen,
+        producto.unidadProducto
+         from ?? 
         join producto  
         on producto_almacen.fk_producto = producto.idProducto
         where producto_almacen.fk_inventario = ?`;
-        console.log(fk_almacen);
-        const prepared = ['producto_almacen', fk_almacen]
+        const prepared = ['producto_almacen', codigo_almacen]
         const ready = db.format(query, prepared)
         const response = db.query(ready)
         return response
     }
 
-    static async registrarInventarioInicial({ fecha, fk_inventario, materiales }) {
+    static async registrarInventarioInicial({ idAlmacen, materiales }) {
+        
         try {
-            let response = {};
-            materiales.map(async (item) => {
 
-                const sqlSentence = "INSERT INTO ?? SET ?";
+            let response = {};
+ 
+            for( let index = 0;index < materiales.length; index++){
+                
+                let material = materiales[index];
+
+                 const sqlSentence = "INSERT INTO ?? SET ?";
                 const sqlPreparing = ["producto_almacen", {
-                    fecha: fecha,
-                    fk_inventario: fk_inventario,
-                    fk_producto: item.material,
-                    costoProductoAlmacen: item.precio,
-                    cantidadProductoAlmacen: item.cantidad,
+                    fk_inventario: idAlmacen,
+                    fk_producto: material.idProducto,
+                    costoProductoAlmacen: material.precio,
+                    cantidadProductoAlmacen: material.cantidadIngresada,
                 }];
                 const sql = await db.format(sqlSentence, sqlPreparing);
 
-                response = await db.query(sql);
+                const response = await db.query(sql);
 
                 //UPDATE TABLE MATERIALES
                 const sqlQueryMateriales = "UPDATE ?? SET precioReferencialProducto=? WHERE idProducto=?"
-                const sqlProtectedMateriales = ["producto", item.precio, item.material]
-                const sqlMateriales = db.format(sqlQueryMateriales, sqlProtectedMateriales)
-                const sqlMaterialesResponse = db.query(sqlMateriales)
-
-            });
-
+                const sqlProtectedMateriales = ["producto", material.precio, material.idProducto]
+                const sqlMateriales = await db.format(sqlQueryMateriales, sqlProtectedMateriales)
+                const sqlMaterialesResponse =await db.query(sqlMateriales)
+            }
+          
             return response;
 
         } catch (error) {
@@ -84,14 +96,13 @@ class Almacen {
         return sql[0]
     }
 
-    static async registrarIngresoMaterial({ movimiento, fecha, fk_inventario, codigoDocumento, responsable, materiales }) {
+    static async registrarIngresoMaterial({ movimiento, fk_inventario, codigoDocumento, responsable, materiales }) {
         try {
             let responseIngreso = {}
             //REGISTRAR INGRESO DE MOVIMIENTO
             const query = `INSERT INTO ?? SET ?`
             const queryProtected = ['movimiento', {
                 tipoMovimiento: movimiento,
-                fechaMovimiento: fecha,
                 codigoDocumento: codigoDocumento,
                 fk_inventario: fk_inventario,
                 personaResponsable: responsable
@@ -110,7 +121,7 @@ class Almacen {
             const sqlProtectedKardex = ['kardex', {
                 movimientoKardex: movimiento,
                 descripcionMovimientoKardex: `${movimiento} - ${codigoDocumento}`,
-                fechaMovimientoKardex: fecha
+
             }]
 
             const sqlReadyKardex = await db.format(sqlQueryKardex, sqlProtectedKardex)
@@ -121,28 +132,29 @@ class Almacen {
             const resKardexRegister = await db.query(idLastInsertKardex);
             const ultimoRegistroKardexIngresado = resKardexRegister[0].id;
 
-            //---------------RECORRIENDO MATERIALES---------------------------//
-            materiales.map(async (item, index) => {
+            //---------------RECORRIENDO MATERIALES V2---------------------------//
+
+            for (let index = 0; index < materiales.length; index++) {
+
+                let material = materiales[index];
 
                 //1- OBTENER CANTIDADES INICIALES DE LOS MATERIALES
                 const queryCantidadInicial = `SELECT*FROM ?? WHERE fk_producto=? AND fk_inventario=?`
-                const queryProtectedCantidadInicial = ['producto_almacen', item.material, fk_inventario]
+                const queryProtectedCantidadInicial = ['producto_almacen', material.idProducto, fk_inventario]
                 const readySql = await db.format(queryCantidadInicial, queryProtectedCantidadInicial)
                 const cantidadInicialResponse = await db.query(readySql)
 
                 //2- REGISTRAR EN PRODUCTO_ALMACEN  
                 const query = `
-                UPDATE ?? SET
-                cantidadProductoAlmacen=cantidadProductoAlmacen + ?,
-                costoProductoAlmacen=? 
-                WHERE fk_producto = ? AND fk_inventario = ?`
+                 UPDATE ?? SET
+                 cantidadProductoAlmacen=cantidadProductoAlmacen + ?
+                 WHERE fk_producto = ? 
+                 AND fk_inventario = ?`;
 
                 const queryProtected = ['producto_almacen',
-                    item.cantidad,
-                    item.precio,
-                    item.material,
+                    material.cantidadIngresada,
+                    material.idProducto,
                     fk_inventario
-
                 ]
 
                 const ready = await db.format(query, queryProtected)
@@ -153,18 +165,10 @@ class Almacen {
                 const ultimoProductoActualizado = await db.query(idProductoUltimoActualizado);
                 const idProductoAlmacenActualizado = ultimoProductoActualizado[index].idProductoAlmacen
 
-
-                //4- ACTUALIZAMOS LA TABLA MATERIALES
-                const sqlQueryProducto = "UPDATE ?? SET precioReferencialProducto=? WHERE idProducto = ?"
-                const sqlProtectedProducto = ["producto", item.precio, item.material]
-                const sqlReadyProducto = await db.format(sqlQueryProducto, sqlProtectedProducto)
-                const sqlResponseProducto = await db.query(sqlReadyProducto)
-
-
                 //5- REGISTRAR TABLA MOVIMIENTO_DETALLE
                 const sqlQueryMovimientoDetalle = "INSERT INTO ?? SET ?"
                 const sqlProtectedMovimientoDetalle = ['detalle_movimiento_inventario', {
-                    cantidad: item.cantidad,
+                    cantidad: material.cantidadIngresada,
                     fk_movimiento: obtenerUltimoMovimientoInsertado,
                     fk_productoAlmacen: idProductoAlmacenActualizado
                 }]
@@ -189,8 +193,8 @@ class Almacen {
                 //8- REGISTRAR KARDEX_DETALLE INGRESO
                 const sqlQueryKardexDetalleIngreso = "INSERT INTO ?? SET ?"
                 const sqlProtectedKardexDetalleIngreso = ["kardex_detalle", {
-                    cantidad: item.cantidad,
-                    costo: item.precio,
+                    cantidad: material.cantidadIngresada,
+                    costo: cantidadInicialResponse[0].costoProductoAlmacen,
                     estado: movimiento,
                     fk_productoAlmacen: idProductoAlmacenActualizado,
                     fk_kardex: ultimoRegistroKardexIngresado
@@ -199,7 +203,9 @@ class Almacen {
                 const sqlReadyKardexDetalleIngreso = await db.format(sqlQueryKardexDetalleIngreso, sqlProtectedKardexDetalleIngreso)
                 const responseModelKardexDetalleIngreso = await db.query(sqlReadyKardexDetalleIngreso)
 
-            })
+
+
+            }
 
             return responseIngreso
 
@@ -209,21 +215,20 @@ class Almacen {
         }
     }
 
-    static async registrarSalidaMaterial({ movimiento, fecha, fk_inventario, codigoDocumento, responsable, uso, materiales }) {
+    static async registrarSalidaMaterial({ movimiento, fk_inventario, codigoDocumento, responsable, uso, materiales }) {
 
+        //SALIDA V2
         try {
             let responseSalida = {}
             //REGISTRAR INGRESO DE MOVIMIENTO
             const query = `INSERT INTO ?? SET ?`
             const queryProtected = ['movimiento', {
                 tipoMovimiento: movimiento,
-                fechaMovimiento: fecha,
                 codigoDocumento: codigoDocumento,
                 fk_inventario: fk_inventario,
                 personaResponsable: responsable,
                 uso: uso
             }]
-
 
             const ready = await db.format(query, queryProtected)
             const sql = await db.query(ready)
@@ -233,14 +238,12 @@ class Almacen {
             const responseUltimoMovimiento = await db.query(ultimoInsertMovimiento);
             const obtenerUltimoMovimientoInsertado = responseUltimoMovimiento[0].id;
 
-
-
             //6- REGISTRAR INGRESO DE PRODUCTO EN KARDEX
             const sqlQueryKardex = `INSERT INTO ?? SET ?`
             const sqlProtectedKardex = ['kardex', {
                 movimientoKardex: movimiento,
                 descripcionMovimientoKardex: `${movimiento} - ${codigoDocumento}`,
-                fechaMovimientoKardex: fecha
+
             }]
 
             const sqlReadyKardex = await db.format(sqlQueryKardex, sqlProtectedKardex)
@@ -251,23 +254,29 @@ class Almacen {
             const resKardexRegister = await db.query(idLastInsertKardex);
             const ultimoRegistroKardexIngresado = resKardexRegister[0].id;
 
-            //---------------RECORRIENDO MATERIALES---------------------------//
-            materiales.map(async (item, index) => {
+            //---------------RECORRIENDO MATERIALES V2---------------------------//
+
+            for (let index = 0; index < materiales.length; index++) {
+
+                let material = materiales[index];
 
                 //1- OBTENER CANTIDADES INICIALES DE LOS MATERIALES
-                const queryCantidadInicial = "SELECT*FROM ?? WHERE fk_producto=? AND fk_inventario=? "
-                const queryProtectedCantidadInicial = ['producto_almacen', item.material, fk_inventario]
+                const queryCantidadInicial = `SELECT*FROM ?? WHERE fk_producto=? AND fk_inventario=?`
+                const queryProtectedCantidadInicial = ['producto_almacen', material.idProducto, fk_inventario]
                 const readySql = await db.format(queryCantidadInicial, queryProtectedCantidadInicial)
                 const cantidadInicialResponse = await db.query(readySql)
 
                 //2- REGISTRAR EN PRODUCTO_ALMACEN  
-                const query = "UPDATE ?? SET cantidadProductoAlmacen=cantidadProductoAlmacen - ? WHERE fk_producto=? AND fk_inventario=? "
+                const query = `
+                 UPDATE ?? SET
+                 cantidadProductoAlmacen=cantidadProductoAlmacen - ?
+                 WHERE fk_producto = ? 
+                 AND fk_inventario = ?`;
 
                 const queryProtected = ['producto_almacen',
-                    item.cantidad,
-                    item.material,
+                    material.cantidadIngresada,
+                    material.idProducto,
                     fk_inventario
-
                 ]
 
                 const ready = await db.format(query, queryProtected)
@@ -278,18 +287,10 @@ class Almacen {
                 const ultimoProductoActualizado = await db.query(idProductoUltimoActualizado);
                 const idProductoAlmacenActualizado = ultimoProductoActualizado[index].idProductoAlmacen
 
-
-                //4- ACTUALIZAMOS LA TABLA MATERIALES
-                // const sqlQueryProducto = "UPDATE ?? SET precioReferencialProducto=? WHERE idProducto = ?"
-                // const sqlProtectedProducto = ["producto", item.precio, item.material]
-                // const sqlReadyProducto = await db.format(sqlQueryProducto, sqlProtectedProducto)
-                // const sqlResponseProducto = await db.query(sqlReadyProducto)
-
-
                 //5- REGISTRAR TABLA MOVIMIENTO_DETALLE
                 const sqlQueryMovimientoDetalle = "INSERT INTO ?? SET ?"
                 const sqlProtectedMovimientoDetalle = ['detalle_movimiento_inventario', {
-                    cantidad: item.cantidad,
+                    cantidad: material.cantidadIngresada,
                     fk_movimiento: obtenerUltimoMovimientoInsertado,
                     fk_productoAlmacen: idProductoAlmacenActualizado
                 }]
@@ -314,8 +315,8 @@ class Almacen {
                 //8- REGISTRAR KARDEX_DETALLE INGRESO
                 const sqlQueryKardexDetalleIngreso = "INSERT INTO ?? SET ?"
                 const sqlProtectedKardexDetalleIngreso = ["kardex_detalle", {
-                    cantidad: item.cantidad,
-                    costo: item.precio,
+                    cantidad: material.cantidadIngresada,
+                    costo: cantidadInicialResponse[0].costoProductoAlmacen,
                     estado: movimiento,
                     fk_productoAlmacen: idProductoAlmacenActualizado,
                     fk_kardex: ultimoRegistroKardexIngresado
@@ -323,8 +324,10 @@ class Almacen {
 
                 const sqlReadyKardexDetalleIngreso = await db.format(sqlQueryKardexDetalleIngreso, sqlProtectedKardexDetalleIngreso)
                 const responseModelKardexDetalleIngreso = await db.query(sqlReadyKardexDetalleIngreso)
-                responseSalida = responseModelKardexDetalleIngreso
-            })
+
+
+
+            }
 
             return responseSalida
 
@@ -332,6 +335,7 @@ class Almacen {
         } catch (error) {
 
         }
+
     }
 
     static async mostrarKardex() {
@@ -342,7 +346,6 @@ class Almacen {
              from (
                 SELECT DISTINCT
                 kardex.idKardex,
-                kardex.fechaMovimientoKardex,
                 kardex.movimientoKardex,
                 kardex_detalle.fk_productoAlmacen,          
                 DATE_FORMAT(kardex.create_date,"%d/%m/%Y") as fecha,
@@ -386,7 +389,6 @@ class Almacen {
              from (
                 SELECT DISTINCT
                 kardex.idKardex,
-                kardex.fechaMovimientoKardex,
                 kardex.movimientoKardex,
                 kardex_detalle.fk_productoAlmacen,          
                 DATE_FORMAT(kardex.create_date,"%d-%m-%Y") as fecha,
@@ -474,7 +476,7 @@ class Almacen {
 
             const sqlSentences = `SELECT 
             idMovimiento,
-            DATE_FORMAT(fechaMovimiento, "%d/%m/%Y") as fecha,
+            DATE_FORMAT(create_date, "%d/%m/%Y") as fecha,
             tipoMovimiento,
             nombreSede,
             codigoDocumento,
@@ -485,6 +487,7 @@ class Almacen {
             ON movimiento.fk_inventario = inventario.codigoInventario
             JOIN sede
             ON inventario.fk_sede = sede.idSede
+            ORDER BY create_date DESC
            
              `
 
@@ -666,16 +669,15 @@ class Almacen {
 
     }
 
-    static async moverEntreAlmacen({ materiales, almacenOrigen, almacenDestino, codigoDocumento, usuarioResponsable, fecha }) {
+    static async moverEntreAlmacen({ materiales, almacenOrigen, almacenDestino, codigoDocumento, responsable }) {
         try {
 
             const queryMovimientoAlmacen = "INSERT INTO ?? SET ?";
             const query_protected_almacen = ['movimiento_almacenes', {
                 codigoDocumento: codigoDocumento,
-                responsable: usuarioResponsable,
+                responsable: responsable,
                 fk_almacenOrigen: almacenOrigen,
                 fk_almacenDestino: almacenDestino,
-                fecha_create: fecha
             }]
             const readyQueryAlmacen = await db.format(queryMovimientoAlmacen, query_protected_almacen);
             const movimiento_almacen_response = await db.query(readyQueryAlmacen);
@@ -688,7 +690,6 @@ class Almacen {
             const query_protected_kardex = ['kardex', {
                 movimientoKardex: "SALIDA",
                 descripcionMovimientoKardex: "MATERIAL CAMBIO DE ALMACEN SALIDA - " + codigoDocumento,
-                fechaMovimientoKardex: fecha
             }]
             const readyQueryKardex = await db.format(queryRetiroKardex, query_protected_kardex);
             const kardex_retiro_response = await db.query(readyQueryKardex)
@@ -700,7 +701,6 @@ class Almacen {
             const query_protected_kardex_ingreso = ['kardex', {
                 movimientoKardex: "INGRESO",
                 descripcionMovimientoKardex: "MATERIAL CAMBIO DE ALMACEN INGRESO - " + codigoDocumento,
-                fechaMovimientoKardex: fecha
             }]
             const readyQueryKardexIngreso = await db.format(queryIngresoKardex, query_protected_kardex_ingreso);
             const kardex_ingreso_response = await db.query(readyQueryKardexIngreso)
@@ -708,23 +708,26 @@ class Almacen {
             const responseIngresoKardex = await db.query(ultimoInsert);
             const id_kardex_ingreso = responseIngresoKardex[0].id;
 
-            materiales.map(async (item, index) => {
+            //MATERIALES RECORRIDO V2
+            for (let index = 0; index < materiales.length; index++) {
+                let material = materiales[index];
                 //registrar materiales
                 const query_movimiento_almacen_detalle = "INSERT INTO ?? SET ?"
                 const query_protected_almacen_detalle = ['movimiento_destino_origen', {
-                    cantidad: item.cantidad,
+                    cantidad: material.cantidadIngresada,
                     fk_movimiento_almacenes: idMovimientoAlmacenes,
-                    fk_producto_almacen: item.material //cambio de fk_producto_almacen a fk_producto
+                    fk_producto_almacen: material.idProducto //cambio de fk_producto_almacen a fk_producto
                 }]
                 const ready_movimiento_almacen_detalle = await db.format(query_movimiento_almacen_detalle, query_protected_almacen_detalle)
                 const response_movimiento_almacen_detalle = await db.query(ready_movimiento_almacen_detalle)
 
                 //consutar cantidad inicial de productos de almacen origen
                 const query_producto_almacen = "SELECT * FROM ?? WHERE fk_inventario = ? and fk_producto = ?"
-                const query_protected_producto_almacen = ['producto_almacen', almacenOrigen, item.material];
+                const query_protected_producto_almacen = ['producto_almacen', almacenOrigen, material.idProducto];
                 const ready_producto_almacen = await db.format(query_producto_almacen, query_protected_producto_almacen)
                 const response_producto_almacen_origen = await db.query(ready_producto_almacen)
-                const _query_protected_producto_almacen = ['producto_almacen', almacenDestino, item.material];
+
+                const _query_protected_producto_almacen = ['producto_almacen', almacenDestino, material.idProducto];
                 const _ready_producto_almacen = await db.format(query_producto_almacen, _query_protected_producto_almacen)
                 var response_producto_almacen_destino = await db.query(_ready_producto_almacen);
                 console.log(response_producto_almacen_destino)
@@ -734,7 +737,6 @@ class Almacen {
                     const newProductoAlmacen = ['producto_almacen', {
                         cantidadProductoAlmacen: 0,
                         costoProductoAlmacen: response_producto_almacen_origen[0].costoProductoAlmacen,
-                        fecha: fecha,
                         fk_producto: response_producto_almacen_origen[0].fk_producto,
                         fk_inventario: almacenDestino
                     }]
@@ -743,8 +745,8 @@ class Almacen {
                     response_producto_almacen_destino = await db.query(_ready_producto_almacen);
                     //si no encuentra agregamos como nuevo producto en el almacen y el stock inicial es 0
                 }
-                const query_updated_almacen_origen = `UPDATE producto_almacen SET cantidadProductoAlmacen=(cantidadProductoAlmacen-${item.cantidad}) where idProductoAlmacen=${response_producto_almacen_origen[0].idProductoAlmacen}`
-                const query_updated_almacen_destino = `UPDATE producto_almacen SET cantidadProductoAlmacen=(cantidadProductoAlmacen+${item.cantidad}) where idProductoAlmacen=${response_producto_almacen_destino[0].idProductoAlmacen}`
+                const query_updated_almacen_origen = `UPDATE producto_almacen SET cantidadProductoAlmacen=(cantidadProductoAlmacen-${material.cantidadIngresada}) where idProductoAlmacen=${response_producto_almacen_origen[0].idProductoAlmacen}`
+                const query_updated_almacen_destino = `UPDATE producto_almacen SET cantidadProductoAlmacen=(cantidadProductoAlmacen+${material.cantidadIngresada}) where idProductoAlmacen=${response_producto_almacen_destino[0].idProductoAlmacen}`
                 //descontamos de almacen origen
                 db.query(query_updated_almacen_origen);
                 db.query(query_updated_almacen_destino);
@@ -760,7 +762,7 @@ class Almacen {
                     fk_kardex: id_kardex_retiro
                 }]
                 const _query_protected_kardex_salida = ['kardex_detalle', {
-                    cantidad: item.cantidad,
+                    cantidad: material.cantidadIngresada,
                     costo: response_producto_almacen_origen[0].costoProductoAlmacen,
                     estado: "SALIDA",
                     fk_productoAlmacen: response_producto_almacen_origen[0].idProductoAlmacen,
@@ -775,7 +777,7 @@ class Almacen {
                     fk_kardex: id_kardex_ingreso
                 }]
                 const _query_protected_kardex_ingreso = ['kardex_detalle', {
-                    cantidad: item.cantidad,
+                    cantidad: material.cantidadIngresada,
                     costo: response_producto_almacen_destino[0].costoProductoAlmacen,
                     estado: "INGRESO",
                     fk_productoAlmacen: response_producto_almacen_destino[0].idProductoAlmacen,
@@ -790,7 +792,9 @@ class Almacen {
                 db.query(ready_salida);
                 const ready_ingreso = await db.format(queryIngresoKardex, _query_protected_kardex_ingreso);
                 db.query(ready_ingreso);
-            })
+            }
+
+
             return true;
 
         } catch (error) {
@@ -801,11 +805,15 @@ class Almacen {
 
     static async filtroProductoSedeAlmacen(sede, almacen) {
         try {
-            // var inventarios = [];
-            // var prepared = "";
-            // console.log(sede);
+
             var query = `
-            select inventario.nombreInventario,producto.idProducto,producto.nombreProducto,producto_almacen.cantidadProductoAlmacen as cantidadProductoAlmacen , producto_almacen.costoProductoAlmacen  from ?? 
+            select 
+            inventario.nombreInventario,
+            producto.idProducto,
+            producto.nombreProducto,
+            producto_almacen.cantidadProductoAlmacen as cantidadProductoAlmacen ,
+             producto_almacen.costoProductoAlmacen
+               from ?? 
             join producto  
             on producto_almacen.fk_producto = producto.idProducto
             join inventario
@@ -826,30 +834,30 @@ class Almacen {
         } catch (error) {
             return { success: false, message: error }
         }
-        // return { success: true , message : response}
+
     }
 
+    //esta es una funcionalidad auxiliar
+    // static async actualizarStockGeneral(materiales) {
 
-    static async actualizarStockGeneral(materiales) {
-
-        for (let index = 0; index < materiales.length; index++) {
+    //     for (let index = 0; index < materiales.length; index++) {
 
 
-            const query = `UPDATE producto_almacen
-            INNER JOIN producto
-            ON  producto_almacen.fk_producto = producto.idProducto
-            SET
-            producto_almacen.cantidadProductoAlmacen = ?,
-            producto_almacen.costoProductoAlmacen =?,
-            producto.precioReferencialProducto=?
-            WHERE producto.skuProducto = ?`
+    //         const query = `UPDATE producto_almacen
+    //         INNER JOIN producto
+    //         ON  producto_almacen.fk_producto = producto.idProducto
+    //         SET
+    //         producto_almacen.cantidadProductoAlmacen = ?,
+    //         producto_almacen.costoProductoAlmacen =?,
+    //         producto.precioReferencialProducto=?
+    //         WHERE producto.skuProducto = ?`
 
-            const queryProtected = [materiales[index].cantidad, materiales[index].precio, materiales[index].precio, materiales[index].sku]
-            const queryReady = await db.format(query, queryProtected)
-            const responseQuery = await db.query(queryReady)
-            return responseQuery
-        }
-    }
+    //         const queryProtected = [materiales[index].cantidad, materiales[index].precio, materiales[index].precio, materiales[index].sku]
+    //         const queryReady = await db.format(query, queryProtected)
+    //         const responseQuery = await db.query(queryReady)
+    //         return responseQuery
+    //     }
+    // }
 
 
 }

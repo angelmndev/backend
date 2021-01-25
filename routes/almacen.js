@@ -32,7 +32,7 @@ route.get('/almacenPorSede/:fk_sede', obtenerAlmacenPorSede)
 route.get('/materiales/:fk_sede', obtenerMaterialesPorSede)
 
 //obtener materiales por almacen
-route.get('/materialPorAlmacen/:fk_almacen', obtenerMaterialesPorAlmacen)
+route.get('/materialPorAlmacen/:codigo_almacen', obtenerMaterialesPorAlmacen)
 
 //registrarInicializacionAlmacen
 route.post('/', registrarInicializacionAlmacen)

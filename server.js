@@ -50,8 +50,7 @@ const cecos = require('./routes/ceco');
 app.use('/cecos', cecos)
 
 
-const inventario = require('./routes/inventario');
-app.use('/inventarios', inventario)
+
 
 const almacen = require('./routes/almacen');
 app.use('/almacen', almacen)

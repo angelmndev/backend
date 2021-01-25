@@ -10,9 +10,9 @@ const obtenerAlmacenPorSede = async (req, res) => {
 }
 
 const obtenerMaterialesPorAlmacen = async (req, res) => {
-    const { fk_almacen } = req.params;
+    const { codigo_almacen } = req.params;
     // console.log(req.params)
-    const materiales = await Almacen.obtenerMaterialesPorAlmacen(fk_almacen)
+    const materiales = await Almacen.obtenerMaterialesPorAlmacen(codigo_almacen)
 
     materiales ? res.status(200).json({ success: true, materiales: materiales })
         : res.status(200).json({ success: false })
@@ -44,6 +44,8 @@ const validarProductoAlmacen = async (req, res) => {
     if (material) {
         res.status(200).json({ success: true, material: material, message: 'El producto ya ha sido registrado!' })
 
+    } else {
+        res.status(200).json({ success: false, material:material,message: 'El producto no esta registrado!' })
     }
 }
 
@@ -147,7 +149,6 @@ const actualizarStockGeneral = async (req, res) => {
 module.exports = {
     obtenerAlmacenPorSede,
     obtenerMaterialesPorSede,
-    obtenerMaterialesPorAlmacen,
     registrarInicializacionAlmacen,
     validarProductoAlmacen,
     registrarIngresoMaterial,
