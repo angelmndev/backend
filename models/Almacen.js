@@ -97,12 +97,11 @@ class Almacen {
     }
 
     static async registrarIngresoMaterial({ movimiento, fk_inventario, codigoDocumento, responsable, materiales }) {
-
-
-
         try {
             let responseIngreso = {}
+
             //REGISTRAR INGRESO DE MOVIMIENTO
+            /**-----------------------------------------------------------------------------*/
             const query = `INSERT INTO ?? SET ?`
             const queryProtected = ['movimiento', {
                 tipoMovimiento: movimiento,
@@ -113,62 +112,87 @@ class Almacen {
 
             const ready = await db.format(query, queryProtected)
             const sql = await db.query(ready)
+            /**----------------------------------------------------------------------------- */
+
 
             //OBTENER EL ULTIMO REGISTRO DE MOVIMIENTO
+            /**-----------------------------------------------------------------------------*/
             const ultimoInsertMovimiento = "SELECT @@identity AS id";
             const responseUltimoMovimiento = await db.query(ultimoInsertMovimiento);
             const obtenerUltimoMovimientoInsertado = responseUltimoMovimiento[0].id;
+            /**-----------------------------------------------------------------------------*/
+
 
             //6- REGISTRAR INGRESO DE PRODUCTO EN KARDEX
+            /**-----------------------------------------------------------------------------*/
             const sqlQueryKardex = `INSERT INTO ?? SET ?`
             const sqlProtectedKardex = ['kardex', {
                 movimientoKardex: movimiento,
-                descripcionMovimientoKardex: `${movimiento} - ${codigoDocumento}`,
-
+                descripcionMovimientoKardex: `${movimiento} - ${codigoDocumento}`
             }]
 
             const sqlReadyKardex = await db.format(sqlQueryKardex, sqlProtectedKardex)
             const sqlResponseKardex = await db.query(sqlReadyKardex)
+            /**-----------------------------------------------------------------------------*/
+
 
             //OBTENER ULTIMO REGISTRO DE KARDEX INGRESADO
+            /**-----------------------------------------------------------------------------*/
             const idLastInsertKardex = "SELECT @@identity AS id";
             const resKardexRegister = await db.query(idLastInsertKardex);
             const ultimoRegistroKardexIngresado = resKardexRegister[0].id;
+            /**-----------------------------------------------------------------------------*/
 
-            //---------------RECORRIENDO MATERIALES V2---------------------------//
 
+
+            //-RECORRIENDO MATERIALES-
+            /**-----------------------------------------------------------------------------*/
             for (let index = 0; index < materiales.length; index++) {
-
                 let material = materiales[index];
 
                 //1- OBTENER CANTIDADES INICIALES DE LOS MATERIALES
+                /**-----------------------------------------------------------------------------*/
                 const queryCantidadInicial = `SELECT*FROM ?? WHERE fk_producto=? AND fk_inventario=?`
                 const queryProtectedCantidadInicial = ['producto_almacen', material.idProducto, fk_inventario]
                 const readySql = await db.format(queryCantidadInicial, queryProtectedCantidadInicial)
                 const cantidadInicialResponse = await db.query(readySql)
+                /**-----------------------------------------------------------------------------*/
 
                 //2- REGISTRAR EN PRODUCTO_ALMACEN  
+                /**-----------------------------------------------------------------------------*/
                 const query = `
-                 UPDATE ?? SET
-                 cantidadProductoAlmacen=cantidadProductoAlmacen + ?
-                 WHERE fk_producto = ? 
-                 AND fk_inventario = ?`;
+                UPDATE ?? SET
+                cantidadProductoAlmacen=cantidadProductoAlmacen + ?
+                WHERE fk_producto = ? AND fk_inventario = ?`
 
                 const queryProtected = ['producto_almacen',
                     material.cantidadIngresada,
                     material.idProducto,
                     fk_inventario
+
                 ]
 
                 const ready = await db.format(query, queryProtected)
                 const sql = await db.query(ready)
+                /**-----------------------------------------------------------------------------*/
 
                 //3- OBTENEMOS EL ULTIMO REGISTRO PRODUCTO_ALMACEN ACTUALIZADO (AQUI ESTOY OBTENIENDO 2 REGISTROS )
-                const idProductoUltimoActualizado = "SELECT idProductoAlmacen FROM producto_almacen ORDER BY ultimaModificacion DESC ";
-                const ultimoProductoActualizado = await db.query(idProductoUltimoActualizado);
-                const idProductoAlmacenActualizado = ultimoProductoActualizado[index].idProductoAlmacen
+                /**----------------------------------------------------------------------------------------------*/
+                const idProductoUltimoActualizado = "SELECT idProductoAlmacen FROM ?? where fk_producto = ? and fk_inventario = ?  LIMIT 1 ";
+                const queryProtectedlist = ['producto_almacen',
+                    material.idProducto,
+                    fk_inventario
 
-                //5- REGISTRAR TABLA MOVIMIENTO_DETALLE
+                ]
+                const readylist = await db.format(idProductoUltimoActualizado, queryProtectedlist)
+                const ultimoProductoActualizado = await db.query(readylist);
+
+                let idProductoAlmacenActualizado = ultimoProductoActualizado[0].idProductoAlmacen;
+                /**-----------------------------------------------------------------------------*/
+
+
+                //4- REGISTRAR TABLA MOVIMIENTO_DETALLE
+                /**-----------------------------------------------------------------------------*/
                 const sqlQueryMovimientoDetalle = "INSERT INTO ?? SET ?"
                 const sqlProtectedMovimientoDetalle = ['detalle_movimiento_inventario', {
                     cantidad: material.cantidadIngresada,
@@ -178,8 +202,12 @@ class Almacen {
 
                 const sqlReadyMovimientoDetalle = await db.format(sqlQueryMovimientoDetalle, sqlProtectedMovimientoDetalle)
                 const sqlResponseMovimientoDetalle = await db.query(sqlReadyMovimientoDetalle)
+                /**-----------------------------------------------------------------------------*/
 
-                //7- REGISTRAR KARDEX_DETALLE CANTIDAD INICIAL
+
+
+                //5- REGISTRAR KARDEX_DETALLE CANTIDAD INICIAL
+                /**-----------------------------------------------------------------------------*/
                 const sqlQueryKardexDetalle = "INSERT INTO ?? SET ?"
                 const sqlProtectedKardexDetalle = ['kardex_detalle', {
                     cantidad: cantidadInicialResponse[0].cantidadProductoAlmacen,
@@ -191,9 +219,10 @@ class Almacen {
 
                 const sqlReadyKardexDetalle = await db.format(sqlQueryKardexDetalle, sqlProtectedKardexDetalle)
                 const sqlResponseKardexDetalle = await db.query(sqlReadyKardexDetalle)
+                /**-----------------------------------------------------------------------------*/
 
-
-                //8- REGISTRAR KARDEX_DETALLE INGRESO
+                //6- REGISTRAR KARDEX_DETALLE INGRESO
+                /**-----------------------------------------------------------------------------*/
                 const sqlQueryKardexDetalleIngreso = "INSERT INTO ?? SET ?"
                 const sqlProtectedKardexDetalleIngreso = ["kardex_detalle", {
                     cantidad: material.cantidadIngresada,
@@ -207,8 +236,8 @@ class Almacen {
                 const responseModelKardexDetalleIngreso = await db.query(sqlReadyKardexDetalleIngreso)
 
 
-
             }
+
 
             return responseIngreso
 
@@ -216,9 +245,164 @@ class Almacen {
         } catch (error) {
 
         }
+
+
     }
 
     static async registrarSalidaMaterial({ movimiento, fk_inventario, codigoDocumento, responsable, uso, materiales }) {
+
+        try {
+            let responseIngreso = {}
+
+            //REGISTRAR INGRESO DE MOVIMIENTO
+            /**-----------------------------------------------------------------------------*/
+            const query = `INSERT INTO ?? SET ?`
+            const queryProtected = ['movimiento', {
+                tipoMovimiento: movimiento,
+                codigoDocumento: codigoDocumento,
+                fk_inventario: fk_inventario,
+                personaResponsable: responsable
+            }]
+
+            const ready = await db.format(query, queryProtected)
+            const sql = await db.query(ready)
+            /**----------------------------------------------------------------------------- */
+
+
+            //OBTENER EL ULTIMO REGISTRO DE MOVIMIENTO
+            /**-----------------------------------------------------------------------------*/
+            const ultimoInsertMovimiento = "SELECT @@identity AS id";
+            const responseUltimoMovimiento = await db.query(ultimoInsertMovimiento);
+            const obtenerUltimoMovimientoInsertado = responseUltimoMovimiento[0].id;
+            /**-----------------------------------------------------------------------------*/
+
+
+            //6- REGISTRAR INGRESO DE PRODUCTO EN KARDEX
+            /**-----------------------------------------------------------------------------*/
+            const sqlQueryKardex = `INSERT INTO ?? SET ?`
+            const sqlProtectedKardex = ['kardex', {
+                movimientoKardex: movimiento,
+                descripcionMovimientoKardex: `${movimiento} - ${codigoDocumento}`
+            }]
+
+            const sqlReadyKardex = await db.format(sqlQueryKardex, sqlProtectedKardex)
+            const sqlResponseKardex = await db.query(sqlReadyKardex)
+            /**-----------------------------------------------------------------------------*/
+
+
+            //OBTENER ULTIMO REGISTRO DE KARDEX INGRESADO
+            /**-----------------------------------------------------------------------------*/
+            const idLastInsertKardex = "SELECT @@identity AS id";
+            const resKardexRegister = await db.query(idLastInsertKardex);
+            const ultimoRegistroKardexIngresado = resKardexRegister[0].id;
+            /**-----------------------------------------------------------------------------*/
+
+
+
+            //-RECORRIENDO MATERIALES-
+            /**-----------------------------------------------------------------------------*/
+            for (let index = 0; index < materiales.length; index++) {
+                let material = materiales[index];
+
+                //1- OBTENER CANTIDADES INICIALES DE LOS MATERIALES
+                /**-----------------------------------------------------------------------------*/
+                const queryCantidadInicial = `SELECT*FROM ?? WHERE fk_producto=? AND fk_inventario=?`
+                const queryProtectedCantidadInicial = ['producto_almacen', material.idProducto, fk_inventario]
+                const readySql = await db.format(queryCantidadInicial, queryProtectedCantidadInicial)
+                const cantidadInicialResponse = await db.query(readySql)
+                /**-----------------------------------------------------------------------------*/
+
+                //2- REGISTRAR EN PRODUCTO_ALMACEN  
+                /**-----------------------------------------------------------------------------*/
+                const query = `
+                UPDATE ?? SET
+                cantidadProductoAlmacen=cantidadProductoAlmacen - ?
+                WHERE fk_producto = ? AND fk_inventario = ?`
+
+                const queryProtected = ['producto_almacen',
+                    material.cantidadIngresada,
+                    material.idProducto,
+                    fk_inventario
+
+                ]
+
+                const ready = await db.format(query, queryProtected)
+                const sql = await db.query(ready)
+                /**-----------------------------------------------------------------------------*/
+
+                //3- OBTENEMOS EL ULTIMO REGISTRO PRODUCTO_ALMACEN ACTUALIZADO (AQUI ESTOY OBTENIENDO 2 REGISTROS )
+                /**----------------------------------------------------------------------------------------------*/
+                const idProductoUltimoActualizado = "SELECT idProductoAlmacen FROM ?? where fk_producto = ? and fk_inventario = ?  LIMIT 1 ";
+                const queryProtectedlist = ['producto_almacen',
+                    material.idProducto,
+                    fk_inventario
+
+                ]
+                const readylist = await db.format(idProductoUltimoActualizado, queryProtectedlist)
+                const ultimoProductoActualizado = await db.query(readylist);
+
+                let idProductoAlmacenActualizado = ultimoProductoActualizado[0].idProductoAlmacen;
+                /**-----------------------------------------------------------------------------*/
+
+
+                //4- REGISTRAR TABLA MOVIMIENTO_DETALLE
+                /**-----------------------------------------------------------------------------*/
+                const sqlQueryMovimientoDetalle = "INSERT INTO ?? SET ?"
+                const sqlProtectedMovimientoDetalle = ['detalle_movimiento_inventario', {
+                    cantidad: material.cantidadIngresada,
+                    fk_movimiento: obtenerUltimoMovimientoInsertado,
+                    fk_productoAlmacen: idProductoAlmacenActualizado
+                }]
+
+                const sqlReadyMovimientoDetalle = await db.format(sqlQueryMovimientoDetalle, sqlProtectedMovimientoDetalle)
+                const sqlResponseMovimientoDetalle = await db.query(sqlReadyMovimientoDetalle)
+                /**-----------------------------------------------------------------------------*/
+
+
+
+                //5- REGISTRAR KARDEX_DETALLE CANTIDAD INICIAL
+                /**-----------------------------------------------------------------------------*/
+                const sqlQueryKardexDetalle = "INSERT INTO ?? SET ?"
+                const sqlProtectedKardexDetalle = ['kardex_detalle', {
+                    cantidad: cantidadInicialResponse[0].cantidadProductoAlmacen,
+                    costo: cantidadInicialResponse[0].costoProductoAlmacen,
+                    estado: 'INICIAL',
+                    fk_productoAlmacen: cantidadInicialResponse[0].idProductoAlmacen,
+                    fk_kardex: ultimoRegistroKardexIngresado
+                }]
+
+                const sqlReadyKardexDetalle = await db.format(sqlQueryKardexDetalle, sqlProtectedKardexDetalle)
+                const sqlResponseKardexDetalle = await db.query(sqlReadyKardexDetalle)
+                /**-----------------------------------------------------------------------------*/
+
+                //6- REGISTRAR KARDEX_DETALLE INGRESO
+                /**-----------------------------------------------------------------------------*/
+                const sqlQueryKardexDetalleIngreso = "INSERT INTO ?? SET ?"
+                const sqlProtectedKardexDetalleIngreso = ["kardex_detalle", {
+                    cantidad: material.cantidadIngresada,
+                    costo: cantidadInicialResponse[0].costoProductoAlmacen,
+                    estado: movimiento,
+                    fk_productoAlmacen: idProductoAlmacenActualizado,
+                    fk_kardex: ultimoRegistroKardexIngresado
+                }]
+
+                const sqlReadyKardexDetalleIngreso = await db.format(sqlQueryKardexDetalleIngreso, sqlProtectedKardexDetalleIngreso)
+                const responseModelKardexDetalleIngreso = await db.query(sqlReadyKardexDetalleIngreso)
+
+
+            }
+
+
+            return responseIngreso
+
+
+        } catch (error) {
+
+        }
+
+
+
+
 
         //SALIDA V2
         try {
@@ -286,11 +470,21 @@ class Almacen {
                 const sql = await db.query(ready)
 
                 //3- OBTENEMOS EL ULTIMO REGISTRO PRODUCTO_ALMACEN ACTUALIZADO (AQUI ESTOY OBTENIENDO 2 REGISTROS )
-                const idProductoUltimoActualizado = "SELECT idProductoAlmacen FROM producto_almacen ORDER BY ultimaModificacion DESC ";
-                const ultimoProductoActualizado = await db.query(idProductoUltimoActualizado);
-                const idProductoAlmacenActualizado = ultimoProductoActualizado[index].idProductoAlmacen
+                /**----------------------------------------------------------------------------------------------*/
+                const idProductoUltimoActualizado = "SELECT idProductoAlmacen FROM ?? where fk_producto = ? and fk_inventario = ?  LIMIT 1 ";
+                const queryProtectedlist = ['producto_almacen',
+                    material.idProducto,
+                    fk_inventario
 
-                //5- REGISTRAR TABLA MOVIMIENTO_DETALLE
+                ]
+                const readylist = await db.format(idProductoUltimoActualizado, queryProtectedlist)
+                const ultimoProductoActualizado = await db.query(readylist);
+
+                let idProductoAlmacenActualizado = ultimoProductoActualizado[0].idProductoAlmacen;
+                /**-----------------------------------------------------------------------------*/
+
+
+                //4- REGISTRAR TABLA MOVIMIENTO_DETALLE
                 const sqlQueryMovimientoDetalle = "INSERT INTO ?? SET ?"
                 const sqlProtectedMovimientoDetalle = ['detalle_movimiento_inventario', {
                     cantidad: material.cantidadIngresada,
@@ -371,7 +565,7 @@ class Almacen {
                 JOIN sede
                 ON inventario.fk_sede = sede.idSede
                 GROUP BY kardex.idKardex,kardex_detalle.fk_productoAlmacen,kardex.create_date 
-                ORDER by kardex.idKardex DESC
+                ORDER by kardex_detalle.created_at DESC
                 ) tb1`
 
             const sqlPreparing = ["kardex"]
