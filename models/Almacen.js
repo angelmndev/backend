@@ -53,16 +53,16 @@ class Almacen {
     }
 
     static async registrarInventarioInicial({ idAlmacen, materiales }) {
-        
+
         try {
 
             let response = {};
- 
-            for( let index = 0;index < materiales.length; index++){
-                
+
+            for (let index = 0; index < materiales.length; index++) {
+
                 let material = materiales[index];
 
-                 const sqlSentence = "INSERT INTO ?? SET ?";
+                const sqlSentence = "INSERT INTO ?? SET ?";
                 const sqlPreparing = ["producto_almacen", {
                     fk_inventario: idAlmacen,
                     fk_producto: material.idProducto,
@@ -77,9 +77,9 @@ class Almacen {
                 const sqlQueryMateriales = "UPDATE ?? SET precioReferencialProducto=? WHERE idProducto=?"
                 const sqlProtectedMateriales = ["producto", material.precio, material.idProducto]
                 const sqlMateriales = await db.format(sqlQueryMateriales, sqlProtectedMateriales)
-                const sqlMaterialesResponse =await db.query(sqlMateriales)
+                const sqlMaterialesResponse = await db.query(sqlMateriales)
             }
-          
+
             return response;
 
         } catch (error) {
@@ -97,6 +97,9 @@ class Almacen {
     }
 
     static async registrarIngresoMaterial({ movimiento, fk_inventario, codigoDocumento, responsable, materiales }) {
+
+
+
         try {
             let responseIngreso = {}
             //REGISTRAR INGRESO DE MOVIMIENTO
