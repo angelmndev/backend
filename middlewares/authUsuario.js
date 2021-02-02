@@ -4,7 +4,7 @@ const { jwtUsuario } = require('../libraries/jwtUsuario')
 
 const authUsuario = async (req, res) => {
     const { nombreUsuario, claveUsuario } = req.body
-
+   
     //validando usuario de la base de datos
     const responseModel = await Usuario.validarUsuario(nombreUsuario)
 

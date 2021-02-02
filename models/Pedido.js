@@ -105,7 +105,7 @@ class Pedido {
                 JOIN ceco
                 ON pedido.fk_ceco = ceco.idCeco
                 JOIN sede
-                ON ceco.fk_sede= sede.idSede
+                ON ceco.fk_sede= sede.idSede ORDER BY create_date DESC
             `;
 
             const sqlPreparing = ["pedido"];
