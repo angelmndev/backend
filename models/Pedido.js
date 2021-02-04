@@ -89,8 +89,12 @@ class Pedido {
     };
 
     static async getPedidos() {
+
         try {
-            const sqlSentences = `SELECT 
+            
+            
+
+           /* const sqlSentences = `SELECT 
                 idPedido,
                 DATE_FORMAT(create_date, "%d/%m/%Y") as fecha ,
                 estado,
@@ -106,6 +110,23 @@ class Pedido {
                 ON pedido.fk_ceco = ceco.idCeco
                 JOIN sede
                 ON ceco.fk_sede= sede.idSede ORDER BY create_date DESC
+            `;*/
+
+            const sqlSentences = `SELECT
+            p.idPedido,
+            DATE_FORMAT(p.create_date, "%d/%m/%Y") AS fecha ,
+            p.estado,
+            u.nombrePersonalUsuario,
+            f.nombreFundo,
+            s.nombreSede,
+            c.idCeco,
+            p.maquinaDestino
+            FROM pedido p
+            JOIN ceco c on p.fk_ceco = c.idCeco
+            JOIN sede s ON c.fk_sede = s.idSede
+            JOIN usuario u  on p.fk_usuario = u.idUsuario
+            LEFT OUTER JOIN fundo_area fa ON (p.fk_ceco = fa.fk_ceco)
+            INNER JOIN fundo f ON fa.fk_fundo = f.idFundo            
             `;
 
             const sqlPreparing = ["pedido"];
@@ -120,8 +141,10 @@ class Pedido {
 
     static async getDetalles(fk_pedido) {
         console.log(fk_pedido);
+
+        
         try {
-            const sqlSentences = `SELECT 
+            /*const sqlSentences = `SELECT 
                fk_pedido,
                idDetalle_pedido,
                nombreProducto,
@@ -143,16 +166,65 @@ class Pedido {
                 ON ceco.fk_sede= sede.idSede
                 WHERE 
                 fk_pedido = ?
-            `;
+            `;*/
+           
 
-            const sqlPreparing = ["detalle_pedido", fk_pedido];
-            const sql = await db.format(sqlSentences, sqlPreparing);
-            console.log(sql);
-            const detalles = await db.query(sql);
-            console.log(detalles);
+            const query_almacen = `SELECT abr,codigoInventario FROM ?? JOIN sede ON fk_sede = idSede WHERE idSede = ?`;
+            const prepare_almacen = ['inventario',1];
+            const sql_almacen = await db.format(query_almacen,prepare_almacen);
+            const res_almacen =await db.query(sql_almacen);
+
+           
+            var case_when_query = "";            
+            var concat_nombre_query = "";
+            res_almacen.forEach((element,index) => {                        
+                case_when_query += ` SUM(CASE WHEN producto_almacen.fk_inventario  = ${element.codigoInventario} AND producto_almacen.fk_producto = detalle_pedido.fk_producto_almacen  THEN cantidadProductoAlmacen ELSE 0 END) AS ${element.abr}`;                                            
+
+                if(index < res_almacen.length -1){
+                    case_when_query += `,`;
+                }
+
+                concat_nombre_query += `' ${element.abr}:',ROUND(${element.abr})`;               
+                
+                
+                if(index < res_almacen.length -1){
+                    concat_nombre_query += `,`;
+                }
+            });
+
+            /* fk_productoalmacen hace referencia a la tabla "producto" */
+            var query_main = `SELECT ALMACEN.*,CONCAT(${concat_nombre_query}) AS almacen FROM
+            (SELECT
+                fk_pedido,
+                idDetalle_pedido,
+                nombreProducto,
+                skuProducto,
+                cantidadPedido,
+                unidadProducto AS unidad,
+                precioReferencialProducto,
+                (cantidadPedido*precioReferencialProducto) AS total,
+                nombreArea,
+                nombreCeco,
+                abr,
+                ${case_when_query}
+            FROM detalle_pedido
+                INNER JOIN pedido ON detalle_pedido.fk_pedido = pedido.idPedido
+                INNER JOIN inventario ON pedido.codigo_almacen = inventario.codigoInventario
+                INNER JOIN producto_almacen ON detalle_pedido.fk_producto_almacen = producto_almacen.fk_producto
+                INNER JOIN producto ON producto_almacen.fk_producto = producto.idProducto
+                INNER JOIN area ON producto.fk_area = area.idArea
+                INNER JOIN ceco ON producto.fk_ceco = ceco.idCeco
+                WHERE fk_pedido = ${fk_pedido}
+                GROUP BY idDetalle_pedido
+            ) AS ALMACEN`;
+
+
+            const detalles = await db.query(query_main);
+            console.log(query_main);
             return detalles;
 
         } catch (error) {
+            console.log(sqlSentences);            
             return error;
         }
     }

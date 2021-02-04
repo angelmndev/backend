@@ -23,22 +23,34 @@ class Producto {
 
 
     async createProducto() {
+        
         try {
+            
+            let randowSkuProducto = "";
+
+            if(this.#skuProducto==null){
+                let cadena = this.#nombreProducto;
+                let abrNombreProducto = cadena.split(" ");
+                randowSkuProducto = abrNombreProducto[0]+"-"+"SIN CODIGO";
+            }
+                          
+
             const sqlSentences = "INSERT INTO ?? SET ?";
             const sqlPreparing = ["producto",
                 {
-                    skuProducto: this.#skuProducto,
+                    skuProducto: this.#skuProducto==null?randowSkuProducto:this.#skuProducto,
                     nombreProducto: this.#nombreProducto,
                     tipoProducto: this.#tipoProducto,
                     precioReferencialProducto: this.#precioReferencialProducto,
                     unidadProducto: this.#unidadProducto,
                     fk_categoria: this.#fk_categoria,
-                    fk_area: this.#fk_area,
+                    fk_area: this.#fk_area==null?"1":this.#fk_area,
                     fk_ceco: this.#fk_ceco
                 }];
 
             const sql = await db.format(sqlSentences, sqlPreparing);
             const response = await db.query(sql);
+            console.log(response);
             return response;
 
         } catch (error) {
